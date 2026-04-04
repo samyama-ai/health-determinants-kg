@@ -1,0 +1,138 @@
+include_node_tools: true
+include_edge_tools: true
+include_algorithm_tools: true
+
+custom_tools:
+  - name: country_vulnerability_profile
+    description: "Get all health determinant indicators for a country across all categories"
+    cypher_template: >
+      MATCH (c:Country {iso_code: '{country_code}'})
+      OPTIONAL MATCH (c)-[:HAS_INDICATOR]->(se:SocioeconomicIndicator)
+      WHERE se.year = {year}
+      WITH c, collect(DISTINCT {name: se.indicator_name, value: se.value}) AS socioeconomic
+      OPTIONAL MATCH (c)-[:ENVIRONMENT_OF]->(ef:EnvironmentalFactor)
+      WHERE ef.year = {year}
+      WITH c, socioeconomic, collect(DISTINCT {name: ef.indicator_name, value: ef.value}) AS environmental
+      OPTIONAL MATCH (c)-[:NUTRITION_STATUS]->(ni:NutritionIndicator)
+      WHERE ni.year = {year}
+      WITH c, socioeconomic, environmental, collect(DISTINCT {name: ni.indicator_name, value: ni.value}) AS nutrition
+      RETURN c.name, socioeconomic, environmental, nutrition
+    parameters:
+      - {name: country_code, type: str, description: "ISO 3166-1 alpha-3 country code"}
+      - {name: year, type: int, default: 2022, description: "Year for indicators"}
+
+  - name: regional_indicator_comparison
+    description: "Compare a specific indicator across all countries in a World Bank region"
+    cypher_template: >
+      MATCH (c:Country)-[:IN_REGION]->(r:Region {name: '{region_name}'})
+      MATCH (c)-[:HAS_INDICATOR]->(s:SocioeconomicIndicator)
+      WHERE s.indicator_code = '{indicator_code}' AND s.year = {year}
+      RETURN c.name, s.value ORDER BY s.value DESC LIMIT {limit}
+    parameters:
+      - {name: region_name, type: str, description: "World Bank region name"}
+      - {name: indicator_code, type: str, description: "WDI indicator code (e.g., NY.GDP.PCAP.CD)"}
+      - {name: year, type: int, default: 2022}
+      - {name: limit, type: int, default: 20}
+
+  - name: poverty_health_correlation
+    description: "Find countries with high poverty AND low health indicators"
+    cypher_template: >
+      MATCH (c:Country)-[:HAS_INDICATOR]->(pov:SocioeconomicIndicator)
+      WHERE pov.indicator_code = 'SI.POV.DDAY' AND pov.year = {year} AND pov.value > {poverty_threshold}
+      MATCH (c)-[:DEMOGRAPHIC_OF]->(le:DemographicProfile)
+      WHERE le.indicator_code = 'SP.DYN.LE00.IN' AND le.year = {year}
+      RETURN c.name, pov.value AS poverty_pct, le.value AS life_expectancy
+      ORDER BY pov.value DESC LIMIT {limit}
+    parameters:
+      - {name: year, type: int, default: 2021}
+      - {name: poverty_threshold, type: float, default: 20.0, description: "Poverty rate threshold (%)"}
+      - {name: limit, type: int, default: 20}
+
+  - name: environmental_risk_hotspots
+    description: "Countries with worst air quality and water stress"
+    cypher_template: >
+      MATCH (c:Country)-[:ENVIRONMENT_OF]->(ef:EnvironmentalFactor)
+      WHERE ef.indicator_code = 'EN.ATM.PM25.MC.M3' AND ef.year = {year}
+      OPTIONAL MATCH (c)-[:WATER_RESOURCE_OF]->(w:WaterResource)
+      WHERE w.indicator_code = 'WATER_STRESS'
+      RETURN c.name, ef.value AS pm25, w.value AS water_stress_pct
+      ORDER BY ef.value DESC LIMIT {limit}
+    parameters:
+      - {name: year, type: int, default: 2021}
+      - {name: limit, type: int, default: 20}
+
+  - name: nutrition_trends
+    description: "Nutrition indicators over time for a country"
+    cypher_template: >
+      MATCH (c:Country {iso_code: '{country_code}'})-[:NUTRITION_STATUS]->(n:NutritionIndicator)
+      WHERE n.indicator_code = '{indicator_code}'
+      RETURN n.year, n.value ORDER BY n.year
+    parameters:
+      - {name: country_code, type: str}
+      - {name: indicator_code, type: str, default: "SH.STA.STNT.ZS", description: "Default: stunting prevalence"}
+
+  - name: demographic_transition
+    description: "Fertility, mortality, and urbanization trends for a country"
+    cypher_template: >
+      MATCH (c:Country {iso_code: '{country_code}'})-[:DEMOGRAPHIC_OF]->(d:DemographicProfile)
+      WHERE d.indicator_code IN ['SP.DYN.TFRT.IN', 'SP.DYN.IMRT.IN', 'SP.URB.TOTL.IN.ZS']
+        AND d.year >= {start_year}
+      RETURN d.indicator_name, d.year, d.value
+      ORDER BY d.indicator_name, d.year
+    parameters:
+      - {name: country_code, type: str}
+      - {name: start_year, type: int, default: 2000}
+
+  - name: water_stress_analysis
+    description: "Water withdrawal vs renewable resources by country"
+    cypher_template: >
+      MATCH (c:Country)-[:WATER_RESOURCE_OF]->(w:WaterResource)
+      WHERE w.year = {year}
+      RETURN c.name, w.indicator_code, w.indicator_name, w.value
+      ORDER BY c.name, w.indicator_code LIMIT {limit}
+    parameters:
+      - {name: year, type: int, default: 2020}
+      - {name: limit, type: int, default: 50}
+
+  - name: hdi_ranking
+    description: "Human Development Index ranking for a given year"
+    cypher_template: >
+      MATCH (c:Country)-[:HAS_INDICATOR]->(s:SocioeconomicIndicator)
+      WHERE s.indicator_code = 'HDI' AND s.year = {year}
+      RETURN c.name, s.value AS hdi ORDER BY s.value DESC LIMIT {limit}
+    parameters:
+      - {name: year, type: int, default: 2022}
+      - {name: limit, type: int, default: 20}
+
+  - name: vulnerability_index
+    description: "Multi-factor vulnerability: poverty + environment + nutrition + water"
+    cypher_template: >
+      MATCH (c:Country)-[:HAS_INDICATOR]->(pov:SocioeconomicIndicator)
+      WHERE pov.indicator_code = 'SI.POV.DDAY' AND pov.year = {year}
+      OPTIONAL MATCH (c)-[:ENVIRONMENT_OF]->(pm:EnvironmentalFactor)
+      WHERE pm.indicator_code = 'EN.ATM.PM25.MC.M3' AND pm.year = {year}
+      OPTIONAL MATCH (c)-[:NUTRITION_STATUS]->(st:NutritionIndicator)
+      WHERE st.indicator_code = 'SH.STA.STNT.ZS'
+      OPTIONAL MATCH (c)-[:WATER_RESOURCE_OF]->(w:WaterResource)
+      WHERE w.indicator_code = 'WATER_STRESS'
+      RETURN c.name, pov.value AS poverty, pm.value AS pm25,
+             st.value AS stunting, w.value AS water_stress
+      ORDER BY pov.value DESC LIMIT {limit}
+    parameters:
+      - {name: year, type: int, default: 2021}
+      - {name: limit, type: int, default: 20}
+
+  - name: cross_kg_disease_risk
+    description: "Cross-KG: correlate health determinants with disease surveillance (requires both KGs in same tenant)"
+    cypher_template: >
+      MATCH (c:Country {iso_code: '{country_code}'})-[:HAS_INDICATOR]->(se:SocioeconomicIndicator)
+      WHERE se.indicator_code = 'SI.POV.DDAY'
+      WITH c, se.value AS poverty
+      MATCH (c)-[:REPORTED]->(dr:DiseaseReport)-[:REPORT_OF]->(d:Disease)
+      WHERE dr.year = {year}
+      RETURN c.name, poverty, d.name AS disease, dr.value AS cases
+      ORDER BY dr.value DESC LIMIT {limit}
+    parameters:
+      - {name: country_code, type: str}
+      - {name: year, type: int, default: 2023}
+      - {name: limit, type: int, default: 10}
