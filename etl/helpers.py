@@ -10,21 +10,27 @@ from dataclasses import dataclass, field
 
 
 def _escape(value: str) -> str:
-    """Sanitize a string for embedding in Cypher literals."""
+    """Sanitize a string for embedding in a double-quoted Cypher literal.
+
+    The Samyama engine's PEG parser rejects backslash- or doubled-quote escaping
+    inside single-quoted strings, so we emit double-quoted literals (the convention
+    the telecom/powergrid loaders use) and escape backslash + double-quote only.
+    """
     if not isinstance(value, str):
         return str(value)
-    return value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
+    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _q(val) -> str:
-    """Quote a value for Cypher: strings get single quotes, numbers/bools pass through."""
+    """Quote a value for Cypher: strings get double quotes, numbers/bools pass through."""
     if val is None:
         return "null"
     if isinstance(val, bool):
         return "true" if val else "false"
     if isinstance(val, (int, float)):
-        return str(val)
-    return f"'{_escape(str(val))}'"
+        from decimal import Decimal
+        return format(Decimal(repr(val)), "f")
+    return f'"{_escape(str(val))}"'
 
 
 def _prop_str(props: dict) -> str:
