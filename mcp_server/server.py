@@ -20,7 +20,7 @@ def main(argv=None):
     parser.add_argument("--url", help="Remote Samyama server URL")
     parser.add_argument("--data-dir", default="data", help="Data directory")
     parser.add_argument("--phases", nargs="*", default=None, help="Phases to load")
-    parser.add_argument("--tenant", default="default", help="Tenant name")
+    parser.add_argument("--tenant", default="health-determinants", help="Tenant name")
     args = parser.parse_args(argv)
 
     from samyama import SamyamaClient
