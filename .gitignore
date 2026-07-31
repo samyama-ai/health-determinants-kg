@@ -7,3 +7,5 @@ data/who_airquality/*.csv
 data/fao/*.csv
 data/undp/*.csv
 *.sgsnap
+.venv/
+venv/

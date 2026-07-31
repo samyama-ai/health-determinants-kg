@@ -18,8 +18,12 @@ from etl.helpers import Registry
 
 ALL_PHASES = ["worldbank", "airquality", "aquastat", "hdi"]
 
+# Default tenant/graph. Matches the published snapshot's tenant and the MCP
+# server's --tenant default, so build-from-source and snapshot agree.
+GRAPH = "health-determinants"
 
-def _run_phase(phase: str, client, data_dir: str, registry: Registry, *, tenant: str = "default") -> dict:
+
+def _run_phase(phase: str, client, data_dir: str, registry: Registry, *, tenant: str = GRAPH) -> dict:
     """Run a single phase and return its stats dict."""
     if phase == "worldbank":
         from etl.worldbank_loader import load_worldbank_data
@@ -41,7 +45,7 @@ def load_health_determinants(
     client,
     data_dir: str = "data",
     phases: list[str] | None = None,
-    tenant: str = "default",
+    tenant: str = GRAPH,
 ) -> dict:
     """Load all health determinants data into the graph.
 
@@ -108,7 +112,7 @@ def main():
     parser.add_argument("--phases", nargs="*", default=None,
                         help=f"Phases to run (default: all). Choices: {ALL_PHASES}")
     parser.add_argument("--url", default=None, help="Remote Samyama server URL")
-    parser.add_argument("--tenant", default="default", help="Tenant name")
+    parser.add_argument("--tenant", default=GRAPH, help="Tenant name")
     args = parser.parse_args()
 
     from samyama import SamyamaClient
