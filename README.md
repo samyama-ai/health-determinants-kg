@@ -6,9 +6,27 @@ Health determinants knowledge graph — World Bank WDI, UNDP HDI and WHO GHO on 
 > This repo holds the loader and source-data specifics for the KG; `etl/` has the ingest scripts, `schema/` the node/edge shapes, `mcp_server/` the MCP exposure.
 
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="License"></a>
+<a href="https://huggingface.co/datasets/VaidhyaMegha/health-determinants-kg"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20dataset-VaidhyaMegha%2Fhealth--determinants--kg-yellow" alt="HuggingFace dataset"></a>
+
+**A World Bank–only subset of this graph is published as a dataset** — you do not have to run
+the ETL to get it:
+**[huggingface.co/datasets/VaidhyaMegha/health-determinants-kg](https://huggingface.co/datasets/VaidhyaMegha/health-determinants-kg)**
+(`v1.0`, CC-BY-4.0). 239,802 nodes and 239,795 edges as node/edge CSVs, plus a `.sgsnap`.
+
+```python
+from datasets import load_dataset
+countries = load_dataset("VaidhyaMegha/health-determinants-kg", "country", revision="v1.0")
+```
+
+> ⚠️ **That dataset is deliberately smaller than the graph this repo builds.** The full build
+> is 285,635 nodes; the published subset is 239,802, because the **45,833 WHO-derived nodes
+> were excluded** — WHO's terms are non-commercial and a commercial publisher cannot meet
+> them. The result carries a single clean licence instead of a mixture. If you need the WHO
+> indicators, take them from [WHO GHO](https://www.who.int/data/gho) directly under their own
+> terms, or build the full graph yourself with the ETL here.
 
 > ⚠️ **The Apache-2.0 badge covers the code in this repository, not the data.** This graph
-> combines three upstream sources under different licences, and **16% of the graph is
+> combines three upstream sources under different licences, and **16% of the full build is
 > non-commercial**. See [Data sources and licences](#data-sources-and-licences) before
 > redistributing anything built from it.
 
@@ -137,6 +155,17 @@ redistribute or build on:
 > ([CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)) and the
 > **UNDP Human Development Report**
 > ([CC BY 3.0 IGO](https://creativecommons.org/licenses/by/3.0/igo/)).
+
+## Links
+
+| | |
+|---|---|
+| **Published dataset** (World Bank subset) | **[huggingface.co/datasets/VaidhyaMegha/health-determinants-kg](https://huggingface.co/datasets/VaidhyaMegha/health-determinants-kg)** |
+| Samyama Graph | [github.com/samyama-ai/samyama-graph](https://github.com/samyama-ai/samyama-graph) |
+| World Bank WDI | [datacatalog.worldbank.org](https://datacatalog.worldbank.org/public-licenses) |
+| UNDP Human Development Report | [hdr.undp.org](https://hdr.undp.org/copyright-and-terms-use) |
+| WHO Global Health Observatory | [who.int/data/gho](https://www.who.int/data/gho) |
+| Contact | [samyama.dev/contact](https://samyama.dev/contact) |
 
 ## License
 
