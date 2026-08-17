@@ -1,6 +1,6 @@
 # Health Determinants Knowledge Graph
 
-Health determinants knowledge graph — World Bank WDI, WHO Air Quality, FAO AQUASTAT, UNDP HDI on Samyama.
+Health determinants knowledge graph — World Bank WDI, UNDP HDI and WHO GHO on Samyama.
 
 > Part of the **Samyama** ecosystem — loaded into and queried via the graph engine at [samyama-ai/samyama-graph](https://github.com/samyama-ai/samyama-graph).
 > This repo holds the loader and source-data specifics for the KG; `etl/` has the ingest scripts, `schema/` the node/edge shapes, `mcp_server/` the MCP exposure.
@@ -8,15 +8,15 @@ Health determinants knowledge graph — World Bank WDI, WHO Air Quality, FAO AQU
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue" alt="License"></a>
 
 > ⚠️ **The Apache-2.0 badge covers the code in this repository, not the data.** This graph
-> combines four upstream sources under four different licences, one of which is
-> **non-commercial**. See [Data sources and licences](#data-sources-and-licences) before
+> combines three upstream sources under different licences, and **16% of the graph is
+> non-commercial**. See [Data sources and licences](#data-sources-and-licences) before
 > redistributing anything built from it.
 
 ![Health-determinants vulnerability demo](demo/health-determinants.gif)
 
 ## Demo
 
-A narrated walkthrough (load World Bank WDI + WHO Air Quality + FAO AQUASTAT →
+A narrated walkthrough (load World Bank WDI + WHO air quality + WHO water/sanitation →
 heaviest air-pollution burden → least safely-managed drinking water → cross the
 drivers for double-burdened countries):
 
@@ -40,7 +40,7 @@ New here? Start with the guides:
 
 **6 edge types** — HAS_INDICATOR, DEMOGRAPHIC_OF, ENVIRONMENT_OF, WATER_RESOURCE_OF, NUTRITION_STATUS, IN_REGION
 
-**Data sources** — World Bank WDI, WHO Air Quality, FAO AQUASTAT, UNDP HDI. `Country.iso_code` bridges to surveillance-kg and health-systems-kg.
+**Data sources** — World Bank WDI, UNDP HDI, and WHO GHO (air quality, plus water and sanitation via `etl/download_fao.py`, which despite its name does not use FAO). `Country.iso_code` bridges to surveillance-kg and health-systems-kg. See [Data sources and licences](#data-sources-and-licences) — the WHO portion is non-commercial.
 
 ## Quick Start
 
@@ -69,16 +69,23 @@ Register it with Claude and ask in natural language — full steps in **[docs/QU
 ## Data sources and licences
 
 The Apache-2.0 licence in [`LICENSE`](LICENSE) covers the **code** in this repository — the
-ETL, the schema and the MCP server. It says nothing about the data, which comes from four
-independent sources under four different licences. **The data's licence is the one that
-governs redistribution**, and here they do not all agree.
+ETL, the schema and the MCP server. It says nothing about the data, which comes from three
+independent sources under different licences. **The data's licence is the one that governs
+redistribution**, and here they do not agree.
 
 | Source | Feeds | Licence | Commercial use / redistribution |
 |--------|-------|---------|--------------------------------|
-| [World Bank WDI](https://datacatalog.worldbank.org/public-licenses) | `SocioeconomicIndicator`, `DemographicProfile`, `NutritionIndicator`, and most `EnvironmentalFactor` / `WaterResource` rows | **CC-BY-4.0** | ✅ Permitted, with attribution |
+| [World Bank WDI](https://datacatalog.worldbank.org/public-licenses) | `DemographicProfile`, `NutritionIndicator`, `SocioeconomicIndicator`, and the country-level `EnvironmentalFactor` / `WaterResource` rows — **239,802 nodes** | **CC-BY-4.0** | ✅ Permitted, with attribution |
 | [UNDP Human Development Index](https://hdr.undp.org/copyright-and-terms-use) | `SocioeconomicIndicator` (HDI values) | **CC BY 3.0 IGO** | ✅ Permitted — "even commercially" |
-| [FAO AQUASTAT](https://www.fao.org/aquastat/en/) | `WaterResource` | ⚠️ **Not confirmed** | Read FAO's terms before redistributing |
-| [WHO Air Quality](https://www.who.int/about/policies/publishing/data-policy) | `EnvironmentalFactor` rows with a `city` (`indicator_code = AIR_QUALITY`) | **Non-commercial** | ❌ **Not permitted for commercial use** |
+| [WHO GHO — air quality](https://www.who.int/about/policies/publishing/data-policy) | `EnvironmentalFactor` where `indicator_code = 'AIR_QUALITY'` — **1,820 nodes** | **Non-commercial** | ❌ **Not permitted for commercial use** |
+| [WHO GHO — water & sanitation](https://www.who.int/about/policies/publishing/data-policy) | `WaterResource` where `indicator_code` is `basic_water`, `basic_sanitation`, `safely_managed_water` or `safely_managed_sanitation` — **44,013 nodes** | **Non-commercial** | ❌ **Not permitted for commercial use** |
+
+> **FAO AQUASTAT is named in this README but is not actually a source.**
+> `etl/download_fao.py` says so in its own docstring: *"The FAO AQUASTAT portal requires
+> manual download, so we use equivalent WHO GHO indicators."* It fetches from
+> `https://ghoapi.azureedge.net/api` — WHO's Global Health Observatory. The `WaterResource`
+> nodes it produces are therefore **WHO data under a FAO-shaped filename**, and they inherit
+> WHO's non-commercial terms. The module name is misleading and should be renamed.
 
 ### The WHO restriction
 
@@ -89,19 +96,37 @@ WHO's data policy makes data available on terms allowing
 so **a commercial organisation may not redistribute the WHO-derived portion of this graph.**
 WHO grants exceptions on request; without one, treat those rows as non-redistributable.
 
-The WHO portion is small and cleanly identifiable — **1,820 nodes**, every one carrying
-`indicator_code = 'AIR_QUALITY'` and a `city`. They are the only city-level rows in the
-graph; every other source is country-level. To exclude them:
+The WHO portion is **45,833 nodes of 285,635 — 16.0%**, in two places:
+
+| Where | `indicator_code` | Nodes |
+|-------|------------------|------:|
+| `WaterResource` | `basic_water`, `basic_sanitation`, `safely_managed_water`, `safely_managed_sanitation` | 44,013 |
+| `EnvironmentalFactor` | `AIR_QUALITY` | 1,820 |
+
+Both are cleanly identifiable, so they can be excluded:
 
 ```cypher
+MATCH (w:WaterResource)
+WHERE w.indicator_code IN ['basic_water', 'basic_sanitation',
+                           'safely_managed_water', 'safely_managed_sanitation']
+DETACH DELETE w;
+
 MATCH (e:EnvironmentalFactor {indicator_code: 'AIR_QUALITY'})
-DETACH DELETE e
+DETACH DELETE e;
 ```
 
-Note the node labels do **not** map one-to-one onto sources — `etl/worldbank_loader.py` also
-writes environmental, nutrition, water and socioeconomic nodes, so `EnvironmentalFactor`
-holds both WHO city-level air quality and World Bank country-level indicators. The `city`
-property is what separates them.
+That leaves **239,802 nodes** under World Bank CC-BY-4.0 and UNDP CC BY 3.0 IGO, both of
+which permit commercial redistribution with attribution.
+
+**Node labels do not map onto sources**, which is what makes this easy to get wrong:
+
+- `etl/worldbank_loader.py` loads across five categories, so `EnvironmentalFactor` and
+  `WaterResource` each hold **both** World Bank and WHO rows.
+- `etl/download_fao.py` is named for FAO but fetches WHO GHO (see above).
+
+The `indicator_code` is the discriminator: World Bank rows carry World Bank codes
+(`ER.H2O.FWTL.ZS`, `SH.H2O.BASW.ZS`, `AG.LND.FRST.ZS`), WHO rows carry the friendly names
+listed in the table above.
 
 ### Attribution
 
@@ -109,10 +134,9 @@ CC-BY-4.0 and CC BY 3.0 IGO both require attribution, and it travels to anything
 redistribute or build on:
 
 > Contains data from the **World Bank World Development Indicators**
-> ([CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)), the
+> ([CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)) and the
 > **UNDP Human Development Report**
-> ([CC BY 3.0 IGO](https://creativecommons.org/licenses/by/3.0/igo/)), and
-> **FAO AQUASTAT**.
+> ([CC BY 3.0 IGO](https://creativecommons.org/licenses/by/3.0/igo/)).
 
 ## License
 
