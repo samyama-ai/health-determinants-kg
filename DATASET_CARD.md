@@ -1,5 +1,5 @@
 ---
-license: unknown
+license: other
 pretty_name: Health Determinants Knowledge Graph
 tags:
   - knowledge-graph
@@ -25,8 +25,10 @@ whether the data fits a question.
 
 ## Provenance and licence
 
-_Not recorded in this repository's README._ The upstream source and its licence
-must be stated before this dataset is redistributed or quoted.
+Apache 2.0 covers the loader. World Bank WDI is CC BY 4.0, but the WHO air-quality data is
+**CC BY-NC-SA 3.0 IGO**, so the joined graph is non-commercial and share-alike. FAO and
+UNDP terms are unverified. See [`DATA-LICENSES.md`](DATA-LICENSES.md).
+
 
 ## Reproducing
 
