@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this knowledge graph, please cite it as below. DATASET_CARD.md's Citation section has details."
+title: "health-determinants-kg: Health determinants knowledge graph from World Bank WDI, UNDP HDI, and WHO GHO"
+type: dataset
+authors:
+  - name: "Samyama"
+    website: "https://git.samyama.ai/Samyama.ai"
+repository-code: "https://git.samyama.ai/Samyama.ai/health-determinants-kg"
+keywords:
+  - knowledge-graph
+  - samyama
+  - property-graph
+  - health
+date-released: "2026-09-23"
